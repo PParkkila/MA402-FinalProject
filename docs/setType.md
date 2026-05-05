@@ -1,4 +1,4 @@
-# `setType`
+# `Tao.setType`
 
 ## Description
 Sets the type of Tao solver to the defined Tao method type. Once the solver type is set, solver-specific options may be set by `tao.setFromOptions()`.

@@ -1,4 +1,4 @@
-# `setSolution`
+# `Tao.setSolution`
 
 ## Description
 Sets the solution of Tao solver to the defined Tao Vector. 

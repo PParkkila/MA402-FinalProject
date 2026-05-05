@@ -1,4 +1,4 @@
-# `setBRGNDictionaryMatrix`
+# `Tao.setBRGNDictionaryMatrix`
 
 ## Description
 Sets the dictionary (regularization) matrix used in the BRGN solver.
