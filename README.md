@@ -6,6 +6,7 @@ $$\min_x \frac{1}{2} \| Ax - b\|_2^2 + \lambda \|Dx \|_1$$
 
 With this, we note that the choice for the regularization term $\lambda$ and the dictionary matrix $D$ are influential to the functionality of the regularization on the least squares model fit. This method defaults to utilizing $D = I$ to represent a standard L1 regularization, but can be mutated to a custom $D$ matrix for wavelets or domain-specific transforms.
 
+The code for this experiment is a modification of the C tutorial posted here: [tao-leastSquares](https://petsc.org/main/src/tao/leastsquares/tutorials/cs1.c.html). This code was first directly translated into Python to utilize the `petsc4py` package as the PETSc Python API, then adapted to fit the needs of trend filtering for the presentation notebook.
 
 The usage of the PETCs C implementation enhances the computational capabilities and utilizes the enhanced engine to speed up the vector-based computation. In the `tutorial_presentation.ipynb` notebook we explore the application of the python implementation of an interpretation of a Tao with L1 dictionary regulation methodology to analyze CO2 trends over time from NOAA data, and then stock market trendlines with volatility analysis off the trendline.
 
