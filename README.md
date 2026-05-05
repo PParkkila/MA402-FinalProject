@@ -1,4 +1,4 @@
-# Trend Filtering (PETSc TAO with L1 Dictionary Regularization)
+# Trend Filtering - PETSc TAO with L1 Dictionary Regularization
 
 Classic least squares optimization fails to properly accouint for noise in data, attempting to  find an optimal solution. However, by the application of trend filtering using PETSc TAO with L1 dictionary regularization, the regularization allows the least squares regression model to not overfit for the noise in the data and produces a fit that better defines the trend in the data. As such, this implementation of the regularization term solves the following least squares problem:
 
@@ -15,4 +15,4 @@ I noticed that the AI would often state that this is the "correct final version,
 
 In addition, both LLMs did extremely well to document the functions in the classes, allowing for easy understanding of the functions and their interactions for the implementation in the presentation and visualizations notebook.
 
-Based on these, I would not utilize LLMs for large tasks such as code translation, since the overhead for managing the translation requires more time to ensure that the outputs are correct and debugging, whereas if I were to fully walk through the implementation myself I believe it would have been a faster process. Still, I would absolutely utilize LLMs for tasks such as function documentation or in-code docstrings to ensure documentation throughout the projects I develop remain consistent.
+Based on these, I would not utilize LLMs for large tasks such as code translation, since the overhead for managing the translation requires more time to ensure that the outputs are correct and debugging, whereas if I were to fully walk through the implementation myself I believe it would have been a faster process. Still, I would absolutely look to utilize LLMs for tasks such as function documentation or in-code docstrings to ensure documentation throughout the projects I develop remain consistent.
