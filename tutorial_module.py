@@ -94,6 +94,8 @@ class TrendFilter:
         opts = PETSc.Options()
         opts["tao_brgn_regularization_type"] = "l1dict"
         opts["tao_brgn_regularizer_weight"] = self.reg_weight
+        for k, v in PETSc.Options().getAll().items():
+            print(k, v)
         self.tao.setFromOptions()
 
     def _create_diff_matrix(self, order):

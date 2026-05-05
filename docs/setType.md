@@ -54,8 +54,8 @@ tao.setFromOptions()
 ```
 
 
-## Source Code Archeology
+## Source Code
 - **petsc4py Wrapper:** [`src/binding/petsc4py/src/petsc4py/PETSc/TAO.pyx`](https://gitlab.com/petsc/petsc/-/blob/release/src/binding/petsc4py/src/petsc4py/PETSc/TAO.pyx?ref_type=heads#L173)
 - **C Header:** [`include/petsctao.h`](https://petsc.org/main/include/petsctao.h.html)
 - **C Implementation:** [`src/tao/interface/taosolver.c`](https://petsc.org/release/src/tao/interface/taosolver.c.html#TaoSetType) (line 2269)
-- **C Documentation Page:** [`TaoSetType`](https://petsc.org/release/manualpages/Tao/TaoSetType/)
+- **C Manual Page:** [`TaoSetType`](https://petsc.org/release/manualpages/Tao/TaoSetType/)

@@ -66,8 +66,8 @@ tao.setBRGNDictionaryMatrix(D)
 ```
 
 
-## Source Code Archeology
+## Source Code
 - **petsc4py Wrapper:** [`src/binding/petsc4py/src/petsc4py/PETSc/TAO.pyx`](https://gitlab.com/petsc/petsc/-/blob/release/src/binding/petsc4py/src/petsc4py/PETSc/TAO.pyx?ref_type=heads#L1930)
 - **C Header:** [`include/petsctao.h`](https://petsc.org/main/include/petsctao.h.html)
 - **C Implementation:** [`src/tao/leastsquares/impls/brgn/brgn.c`](https://petsc.org/release/src/tao/leastsquares/impls/brgn/brgn.c.html#TaoBRGNSetDictionaryMatrix_BRGN) (line 622)
-- **C Documentation Page:** [`TaoBRGNSetDictionaryMatrix`](https://petsc.org/release/manualpages/Tao/TaoBRGNSetDictionaryMatrix/)
+- **C Manual Page:** [`TaoBRGNSetDictionaryMatrix`](https://petsc.org/release/manualpages/Tao/TaoBRGNSetDictionaryMatrix/)
