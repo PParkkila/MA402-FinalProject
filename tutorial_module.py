@@ -1,90 +1,212 @@
 from petsc4py import PETSc
 import numpy as np
+import pandas as pd
 
-M, N, K = 3, 5, 4
+## NOTE: This is an adaptation of the code from https://petsc.org/main/src/tao/leastsquares/tutorials/cs1.c.html.
 
-def main():
-    # 1. Initialize Matrices and Vectors
-    A = PETSc.Mat().createDense([M, N])
-    A.setUp()
-    
-    A_data = [
-        [0.81, 0.91, 0.28, 0.96, 0.96],
-        [0.91, 0.63, 0.55, 0.16, 0.49],
-        [0.13, 0.10, 0.96, 0.97, 0.80],
-    ]
+class TrendFilter:
+    """
+    Trend filtering using PETSc TAO with L1 dictionary regularization.
 
-    for i in range(M):
-        for j in range(N):
-            A.setValue(i, j, A_data[i][j])
-    A.assemblyBegin(); A.assemblyEnd()
+    This class formulates and solves a regularized least-squares problem
+    of the form:
 
-    b = PETSc.Vec().createSeq(M)
-    b.setArray(np.array([0.28, 0.55, 0.96], dtype=PETSc.ScalarType))
+        minimize_x ||Ax - b||_2^2 + λ ||Dx||_1
 
-    D = PETSc.Mat().createDense([K, N])
-    D.setUp()
-    for k in range(K):
-        D.setValue(k, k, -1.0)
-        if k + 1 < N:
-            D.setValue(k, k + 1, 1.0)
-    D.assemblyBegin(); D.assemblyEnd()
+    where:
+        - A is the identity matrix (data fidelity term),
+        - b is the observed data,
+        - D is a discrete difference operator (first or second order),
+        - λ is the regularization weight.
 
-    x = PETSc.Vec().createSeq(N)
-    x.set(0.0)
-    f = PETSc.Vec().createSeq(M)
+    The optimization is solved using PETSc's TAO solver with the
+    bounded-regularized Gauss-Newton (BRGN) method.
 
-    # 2. Define the Residual and Jacobian Functions
-    def compute_residual(tao, x, f):
-        A.mult(x, f)
-        f.axpy(-1.0, b)
+    Parameters
+    ----------
+    data : array_like
+        Input 1D signal to be filtered.
+    order : int, optional
+        Order of the difference operator:
+            - 1: piecewise constant trend (total variation)
+            - 2: piecewise linear trend
+        Default is 1.
+    reg_weight : float, optional
+        Regularization weight (λ). Controls smoothness of the solution.
+        Higher values produce smoother trends. Default is 1.0.
 
-    def compute_jacobian(tao, x, Amat, Pmat):
-        # The Jacobian of (Ax - b) is simply A.
-        # Since A is constant and already contains the values, we do nothing.
+    Attributes
+    ----------
+    n : int
+        Length of the input data.
+    reg_weight : float
+        Regularization parameter.
+    A : PETSc.Mat
+        Identity matrix representing the observation operator.
+    D : PETSc.Mat
+        Discrete difference matrix.
+    b : PETSc.Vec
+        PETSc vector containing input data.
+    x : PETSc.Vec
+        Solution vector (trend estimate).
+    f : PETSc.Vec
+        Residual vector.
+    tao : PETSc.TAO
+        TAO optimization solver instance.
+
+    Notes
+    -----
+    - Uses L1 regularization on Dx to promote sparsity in derivatives.
+    - Internally relies on PETSc's TAO solver with type "brgn".
+    - Initial guess is set to the mean of the input data.
+    """
+
+    def __init__(self, data, order=1, reg_weight=1.0):
+        self.n = len(data)
+        self.reg_weight = reg_weight
+        
+        # 1. Setup Matrices
+        # A is Identity (Direct observation)
+        self.A = PETSc.Mat().createAIJ([self.n, self.n])
+        self.A.setUp()
+        for i in range(self.n):
+            self.A.setValue(i, i, 1.0)
+        self.A.assemblyBegin(); self.A.assemblyEnd()
+
+        # D is the Discrete Difference Matrix
+        self.D = self._create_diff_matrix(order)
+        self.b = self._to_petsc_vec(data)
+        
+        # 2. Setup Vectors
+        self.x = PETSc.Vec().createSeq(self.n)
+        self.x.set(np.mean(data)) # Better initial guess
+        self.f = PETSc.Vec().createSeq(self.n)
+        
+        # 3. Solver Config
+        self.tao = PETSc.TAO().create(PETSc.COMM_WORLD)
+        self.tao.setType("brgn")
+        self.tao.setSolution(self.x)
+        self.tao.setResidual(self._compute_residual, self.f)
+        self.tao.setJacobianResidual(self._compute_jacobian, self.A, self.A)
+        self.tao.setBRGNDictionaryMatrix(self.D)
+        
+        # 4. Set Hyperparameters
+        opts = PETSc.Options()
+        opts["tao_brgn_regularization_type"] = "l1dict"
+        opts["tao_brgn_regularizer_weight"] = self.reg_weight
+        self.tao.setFromOptions()
+
+    def _create_diff_matrix(self, order):
+        """
+        Construct a discrete difference matrix.
+
+        Parameters
+        ----------
+        order : int
+            Order of the difference operator:
+                - 1: first-order differences
+                - 2: second-order differences
+
+        Returns
+        -------
+        PETSc.Mat
+            Sparse matrix representing the difference operator.
+
+        Notes
+        -----
+        - First-order differences compute x[i+1] - x[i].
+        - Second-order differences compute x[i] - 2*x[i+1] + x[i+2].
+        """
+        if order == 1:
+            rows = self.n - 1
+            D = PETSc.Mat().createAIJ([rows, self.n])
+            D.setUp()
+            for i in range(rows):
+                D.setValues(i, [i, i+1], [-1, 1])
+        else: # Order 2: Piecewise Linear
+            rows = self.n - 2
+            D = PETSc.Mat().createAIJ([rows, self.n])
+            D.setUp()
+            for i in range(rows):
+                D.setValues(i, [i, i+1, i+2], [1, -2, 1])
+        
+        D.assemblyBegin(); D.assemblyEnd()
+        return D
+
+    def _to_petsc_vec(self, arr):
+        """
+        Convert a NumPy array to a PETSc vector.
+
+        Parameters
+        ----------
+        arr : array_like
+            Input array.
+
+        Returns
+        -------
+        PETSc.Vec
+            PETSc vector containing the input data.
+        """
+        v = PETSc.Vec().createSeq(len(arr))
+        v.setArray(arr.astype(PETSc.ScalarType))
+        return v
+
+    def _compute_residual(self, tao, x, f):
+        """
+        Compute the residual vector.
+
+        Parameters
+        ----------
+        tao : PETSc.TAO
+            TAO solver instance.
+        x : PETSc.Vec
+            Current solution estimate.
+        f : PETSc.Vec
+            Output residual vector (modified in place).
+
+        Notes
+        -----
+        Residual is defined as:
+
+            f = A x - b
+        """
+        self.A.mult(x, f)
+        f.axpy(-1.0, self.b)
+
+    def _compute_jacobian(self, tao, x, Amat, Pmat):
+        """
+        Compute the Jacobian of the residual.
+
+        Parameters
+        ----------
+        tao : PETSc.TAO
+            TAO solver instance.
+        x : PETSc.Vec
+            Current solution estimate.
+        Amat : PETSc.Mat
+            Jacobian matrix (to be filled).
+        Pmat : PETSc.Mat
+            Preconditioner matrix.
+
+        Notes
+        -----
+        Currently not implemented. For identity A, the Jacobian is constant.
+        """
         pass
 
-    # 3. Setup TAO Solver
-    tao = PETSc.TAO().create(PETSc.COMM_WORLD)
-    tao.setType("brgn")
-    tao.setSolution(x)
-    
-    # Use setResidual for the function Ax - b
-    tao.setResidual(compute_residual, f)
-    
-    # CRITICAL FIX: Use setJacobianResidual for least-squares solvers like BRGN
-    # This maps to TaoSetResidualJacobianRoutine in the PETSc C API.
-    try:
-        tao.setJacobianResidual(compute_jacobian, A, A)
-    except AttributeError:
-        # Fallback for specific petsc4py versions
-        tao.setJacobian(compute_jacobian, A, A)
+    def solve(self):
+        """
+        Solve the trend filtering optimization problem.
 
-    # 4. BRGN-specific Dictionary Matrix
-    tao.setBRGNDictionaryMatrix(D)
+        Returns
+        -------
+        numpy.ndarray
+            Filtered trend estimate.
 
-    # 5. Set Options
-    opts = PETSc.Options()
-    opts["tao_brgn_regularization_type"] = "l1dict"
-    opts["tao_brgn_regularizer_weight"] = 1e-4
-    opts["tao_brgn_l1_smooth_epsilon"] = 1e-6
-    opts["tao_gatol"] = 1e-8
-    opts["tao_monitor"] = None  # View progress in terminal
-    
-    tao.setFromOptions()
-    
-    # 6. Solve
-    print("Starting solver...")
-    tao.solve()
-
-    # 7. Output Results
-    reason = tao.getConvergedReason()
-    PETSc.Sys.Print(f"\n===== SOLVER TERMINATED: {reason} =====")
-    if reason > 0:
-        PETSc.Sys.Print("===== RESULT VECTOR =====")
-        x.view()
-    else:
-        PETSc.Sys.Print("Solver failed to converge.")
-
-if __name__ == "__main__":
-    main()
+        Notes
+        -----
+        - Runs the TAO solver until convergence.
+        - Returns a copy of the solution vector as a NumPy array.
+        """
+        self.tao.solve()
+        return self.x.getArray().copy()
