@@ -94,8 +94,6 @@ class TrendFilter:
         opts = PETSc.Options()
         opts["tao_brgn_regularization_type"] = "l1dict"
         opts["tao_brgn_regularizer_weight"] = self.reg_weight
-        for k, v in PETSc.Options().getAll().items():
-            print(k, v)
         self.tao.setFromOptions()
 
     def _create_diff_matrix(self, order):
@@ -212,3 +210,36 @@ class TrendFilter:
         """
         self.tao.solve()
         return self.x.getArray().copy()
+
+
+def main():
+    ## As test data lets create a quadratic trend with dummy data
+    n = 200
+    t = np.linspace(0, 10, n)
+    true_trend = 0.5 * t**2  # The "hidden" smooth signal
+    noise = np.random.normal(0, 3.5, n)
+    observed_signal = true_trend + noise
+
+    print(f"Initializing TrendFilter with {n} data points...")
+    model = TrendFilter(observed_signal, order=2, reg_weight=10)
+
+    print("Solving for trend via TAO BRGN...")
+    trend = model.solve()
+
+    print("\n===== RESULT SUMMARY =====")
+    print(f"Original Signal Mean: {np.mean(observed_signal):.4f}")
+    print(f"Recovered Trend Mean: {np.mean(trend):.4f}")
+
+    import matplotlib.pyplot as plt
+    
+    plt.figure(figsize=(10, 5))
+    plt.scatter(range(n), observed_signal, alpha=0.3, label="Observed (Noisy)")
+    plt.plot(range(n), true_trend, 'g--', label="True Quadratic Trend")
+    plt.plot(range(n), trend, 'r-', linewidth=2, label="Recovered PETSc Trend")
+    plt.legend()
+    plt.title("PETSc/TAO Trend Filtering Performance")
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
